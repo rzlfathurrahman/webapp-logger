@@ -59,6 +59,55 @@ class ProjectController extends Controller
         return back()->with('success', 'Project removed.');
     }
 
+    private function parseLine($line, $projectId, $projectName)
+    {
+        if (preg_match('/^\[(.*?)\]\s+(\w+)\.(\w+):\s+(.*)/', $line, $matches)) {
+            $message = $matches[4];
+            $context = null;
+
+            // Attempt to find JSON context (Object or Array)
+            $candidates = [];
+
+            $p1 = strpos($message, '{');
+            if ($p1 !== false) $candidates[] = $p1;
+
+            $p2 = strpos($message, '[');
+            if ($p2 !== false) $candidates[] = $p2;
+
+            if (!empty($candidates)) {
+                $jsonStart = min($candidates);
+                $possibleJson = substr($message, $jsonStart);
+                $decoded = json_decode($possibleJson, true);
+
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $context = $decoded;
+                    $message = trim(substr($message, 0, $jsonStart));
+                }
+            }
+
+            return [
+                'timestamp' => $matches[1],
+                'env' => $matches[2],
+                'level' => $matches[3],
+                'message' => $message,
+                'context' => $context,
+                'project_id' => $projectId,
+                'project_name' => $projectName,
+                'raw' => $line
+            ];
+        }
+
+        return [
+            'timestamp' => '',
+            'env' => 'RAW',
+            'level' => 'LOG',
+            'message' => $line,
+            'project_id' => $projectId,
+            'project_name' => $projectName,
+            'raw' => $line
+        ];
+    }
+
     public function logs($id)
     {
         $project = \App\Models\MonitoredProject::findOrFail($id);
@@ -72,34 +121,11 @@ class ProjectController extends Controller
         exec("tail -n 100 " . escapeshellarg($project->log_path), $output);
 
         $logs = [];
+        $logs = [];
         foreach ($output as $line) {
             if (empty(trim($line)))
                 continue;
-
-            // Try to parse standard Laravel logs
-            if (preg_match('/^\[(.*?)\]\s+(\w+)\.(\w+):\s+(.*)/', $line, $matches)) {
-                $logs[] = [
-                    'timestamp' => $matches[1],
-                    'env' => $matches[2],
-                    'level' => $matches[3],
-                    'message' => $matches[4],
-                    'project_id' => $project->id,
-                    'project_name' => $project->name,
-                    'raw' => $line
-                ];
-            } else {
-                // Return raw line if it doesn't match standard format (e.g. stack trace)
-                // Identifying it as "INFO" or "DEBUG" might be wrong, so maybe just generic "LOG"
-                $logs[] = [
-                    'timestamp' => '',
-                    'env' => '',
-                    'level' => 'RAW',
-                    'message' => $line,
-                    'project_id' => $project->id,
-                    'project_name' => $project->name,
-                    'raw' => $line
-                ];
-            }
+            $logs[] = $this->parseLine($line, $project->id, $project->name);
         }
 
         return response()->json(['logs' => $logs]);
@@ -132,28 +158,7 @@ class ProjectController extends Controller
             foreach ($output as $line) {
                 if (empty(trim($line)))
                     continue;
-
-                if (preg_match('/^\[(.*?)\]\s+(\w+)\.(\w+):\s+(.*)/', $line, $matches)) {
-                    $allLogs[] = [
-                        'timestamp' => $matches[1],
-                        'env' => $matches[2],
-                        'level' => $matches[3],
-                        'message' => $matches[4],
-                        'project_id' => $project->id,
-                        'project_name' => $project->name,
-                        'raw' => $line
-                    ];
-                } else {
-                    $allLogs[] = [
-                        'timestamp' => '',
-                        'env' => 'RAW',
-                        'level' => 'LOG',
-                        'message' => $line,
-                        'project_id' => $project->id,
-                        'project_name' => $project->name,
-                        'raw' => $line
-                    ];
-                }
+                $allLogs[] = $this->parseLine($line, $project->id, $project->name);
             }
         }
 

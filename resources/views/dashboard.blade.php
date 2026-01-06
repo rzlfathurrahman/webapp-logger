@@ -272,17 +272,38 @@
 
             if (bgColor) div.classList.add(bgColor);
 
+            let contextHtml = '';
+            if (data.context) {
+                const contextId = 'ctx-' + Math.random().toString(36).substr(2, 9);
+                const prettyJson = JSON.stringify(data.context, null, 2);
+                contextHtml = `
+                    <div class="w-full mt-1 ml-40 pl-2">
+                        <button onclick="document.getElementById('${contextId}').classList.toggle('hidden')" class="text-[10px] text-teal-600 hover:text-teal-400 underline focus:outline-none flex items-center">
+                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                            Show Context Data
+                        </button>
+                        <pre id="${contextId}" class="hidden mt-1 p-2 bg-gray-950 rounded text-green-300 text-[10px] overflow-x-auto border border-gray-800">${prettyJson}</pre>
+                    </div>
+                `;
+            }
+
             div.innerHTML = `
-                <span class="text-gray-500 text-xs whitespace-nowrap opacity-60 w-32 font-mono">${data.timestamp}</span>
-                <div class="relative group/name w-24">
-                     <span class="text-teal-600 text-xs font-bold whitespace-nowrap truncate block w-full cursor-help">[${data.project_name}]</span>
-                     <span class="absolute left-0 top-0 z-50 bg-gray-800 text-teal-400 border border-gray-600 px-2 py-1 rounded shadow-lg text-xs font-bold whitespace-nowrap hidden group-hover/name:block">
-                        [${data.project_name}]
-                     </span>
+                <div class="flex items-start space-x-2 w-full">
+                    <span class="text-gray-500 text-xs whitespace-nowrap opacity-60 w-32 font-mono">${data.timestamp}</span>
+                    <div class="relative group/name w-24">
+                         <span class="text-teal-600 text-xs font-bold whitespace-nowrap truncate block w-full cursor-help">[${data.project_name}]</span>
+                         <span class="absolute left-0 top-0 z-50 bg-gray-800 text-teal-400 border border-gray-600 px-2 py-1 rounded shadow-lg text-xs font-bold whitespace-nowrap hidden group-hover/name:block">
+                            [${data.project_name}]
+                         </span>
+                    </div>
+                    <span class="${levelColor} font-bold text-xs w-16 text-center whitespace-nowrap">${data.level}</span>
+                    <span class="text-gray-300 break-words flex-1">${data.message}</span>
                 </div>
-                <span class="${levelColor} font-bold text-xs w-16 text-center whitespace-nowrap">${data.level}</span>
-                <span class="text-gray-300 break-words flex-1">${data.message}</span>
+                ${contextHtml}
             `;
+
+            // Adjust div class to flex-col for proper layout of context below
+            div.className = `log-entry hover:bg-gray-800 p-1 rounded group border-b border-gray-800/50 flex flex-col items-start space-y-1 animate-fade-in-up`;
 
             container.appendChild(div);
 

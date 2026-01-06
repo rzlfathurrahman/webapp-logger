@@ -102,24 +102,41 @@ class WatchLogs extends Command
         // Regex: /^\[(.*?)\]\s+(\w+)\.(\w+):\s+(.*)/
 
         if (preg_match('/^\[(.*?)\]\s+(\w+)\.(\w+):\s+(.*)/', $line, $matches)) {
+            $message = $matches[4];
+            $context = null;
+
+            // Attempt to find JSON context (Object or Array)
+            $candidates = [];
+
+            $p1 = strpos($message, '{');
+            if ($p1 !== false)
+                $candidates[] = $p1;
+
+            $p2 = strpos($message, '[');
+            if ($p2 !== false)
+                $candidates[] = $p2;
+
+            if (!empty($candidates)) {
+                $jsonStart = min($candidates);
+                $possibleJson = substr($message, $jsonStart);
+                $decoded = json_decode($possibleJson, true);
+
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $context = $decoded;
+                    $message = trim(substr($message, 0, $jsonStart));
+                }
+            }
+
             return [
                 'timestamp' => $matches[1],
                 'env' => $matches[2],
                 'level' => $matches[3],
-                'message' => $matches[4],
+                'message' => $message,
+                'context' => $context,
                 'raw' => $line
             ];
         }
 
-        // If not matching, treat as continuation or raw
-        // For simplicity, skip stack traces or handle differently?
-        // Let's just return a generic raw object if it looks like a wrapped line,
-        // OR only return valid starts.
-        // Returning null skips parsing = skips broadcasting non-header lines (stack traces).
-        // For a simple logger, maybe that's fine, or we want to append to previous?
-        // Appending to previous is complex in stateless loop line-by-line.
-        // Let's iterate lines and keep context if needed?
-
-        return null;
+        return null; // Return null to fallback to RAW handling in processNewLogs
     }
 }
