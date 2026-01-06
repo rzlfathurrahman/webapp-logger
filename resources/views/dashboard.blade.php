@@ -59,12 +59,15 @@
                 </div>
             @endif
 
-            <div class="p-2 bg-gray-700 rounded cursor-pointer hover:bg-gray-600 transition" onclick="filterLog(null)">
+            <div id="project-card-all"
+                class="p-2 bg-gray-600 border border-teal-500 rounded cursor-pointer hover:bg-gray-600 transition project-card"
+                onclick="filterLog(null, 'All Projects - Live Stream')">
                 <div class="font-bold text-sm">All Projects</div>
             </div>
             @foreach($projects as $project)
-                <div class="p-2 bg-gray-750 border border-gray-700 rounded cursor-pointer hover:bg-gray-700 transition group relative"
-                    onclick="filterLog({{ $project->id }})">
+                <div id="project-card-{{ $project->id }}"
+                    class="p-2 bg-gray-750 border border-gray-700 rounded cursor-pointer hover:bg-gray-700 transition group relative project-card"
+                    onclick="filterLog({{ $project->id }}, '{{ addslashes($project->name) }}')">
                     <div class="font-bold text-sm text-gray-300 group-hover:text-white pr-6">{{ $project->name }}</div>
                     <div class="text-xs text-gray-500 truncate group-hover:text-gray-400">{{ $project->path }}</div>
                     <div class="text-xs mt-1 flex justify-between items-center">
@@ -73,19 +76,36 @@
                     </div>
 
                     <div class="absolute top-2 right-2 hidden group-hover:flex space-x-1">
-                        <form action="{{ route('projects.clear', $project->id) }}" method="POST" onsubmit="return confirm('Truncate log file for {{ $project->name }}?')">
+                        <form action="{{ route('projects.clear', $project->id) }}" method="POST"
+                            onsubmit="return confirm('Truncate log file for {{ $project->name }}?')">
                             @csrf
-                            <button type="submit" class="p-1 text-gray-500 hover:text-yellow-400 bg-gray-800 rounded transition" title="Truncate Log File" onclick="event.stopPropagation()">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            <button type="submit"
+                                class="p-1 text-gray-500 hover:text-yellow-400 bg-gray-800 rounded transition"
+                                title="Truncate Log File" onclick="event.stopPropagation()">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                    </path>
+                                </svg>
                                 <!-- Using eraser icon or similar -->
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"></path></svg>
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                    style="display:none">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 14l9-5-9-5-9 5 9 5z"></path>
+                                </svg>
                             </button>
                         </form>
-                        <form action="{{ route('projects.destroy', $project->id) }}" method="POST" onsubmit="return confirm('Remove project {{ $project->name }} from monitoring?')">
+                        <form action="{{ route('projects.destroy', $project->id) }}" method="POST"
+                            onsubmit="return confirm('Remove project {{ $project->name }} from monitoring?')">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="p-1 text-gray-500 hover:text-red-400 bg-gray-800 rounded transition" title="Remove Project" onclick="event.stopPropagation()">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            <button type="submit"
+                                class="p-1 text-gray-500 hover:text-red-400 bg-gray-800 rounded transition"
+                                title="Remove Project" onclick="event.stopPropagation()">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
                             </button>
                         </form>
                     </div>
@@ -132,7 +152,9 @@
                 <span id="connection-status" class="w-2 h-2 rounded-full bg-yellow-500" title="Connecting..."></span>
             </h1>
             <div class="space-x-2 flex items-center">
-                <button id="btn-clear-file" onclick="clearLogFile()" class="hidden px-3 py-1.5 bg-red-900/50 hover:bg-red-800 rounded text-xs text-red-200 border border-red-800/50 transition">Truncate File</button>
+                <button id="btn-clear-file" onclick="clearLogFile()"
+                    class="hidden px-3 py-1.5 bg-red-900/50 hover:bg-red-800 rounded text-xs text-red-200 border border-red-800/50 transition">Truncate
+                    File</button>
                 <div class="h-4 w-px bg-gray-700 mx-2"></div>
                 <button onclick="clearLogs()"
                     class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-xs text-white border border-gray-600 transition">Clear
@@ -156,18 +178,26 @@
         // Global state
         let activeProjectId = null;
 
-        function filterLog(projectId) {
+        function filterLog(projectId, projectName) {
             activeProjectId = projectId;
 
-            // Clear current view logic
-            // Because we now want to SHOW history when clicking a project,
-            // hiding unrelated logs is fine for realtime, but for history we want to LOAD it.
-            // If "All Projects" is clicked, we just clear and wait for new ones?
-            // Or maybe load histories from ALL projects? (Too heavy).
-            // Let's stick to: Click Project -> Load History -> Append future logs.
+            // Update Sidebar Active State
+            document.querySelectorAll('.project-card').forEach(el => {
+                // Reset to inactive
+                el.classList.remove('bg-gray-600', 'border-teal-500');
+                el.classList.add('bg-gray-750', 'border-gray-700');
+            });
+
+            // Set active
+            const activeId = projectId ? `project-card-${projectId}` : 'project-card-all';
+            const activeEl = document.getElementById(activeId);
+            if (activeEl) {
+                activeEl.classList.remove('bg-gray-750', 'border-gray-700');
+                activeEl.classList.add('bg-gray-600', 'border-teal-500');
+            }
 
             clearLogs();
-            document.getElementById('current-filter').innerText = projectId ? `Project #${projectId}` : 'All Projects - Live Stream';
+            document.getElementById('current-filter').innerText = projectName || (projectId ? `Project #${projectId}` : 'All Projects - Live Stream');
 
             // Toggle Clear File button
             const btnClearFile = document.getElementById('btn-clear-file');
@@ -213,8 +243,8 @@
                          console.error(err);
                          document.getElementById('logs-container').innerHTML = '<div class="text-red-500 text-xs text-center mt-4">Failed to load recent logs.</div>';
                      });
-            }
         }
+ }
 
         function clearLogs() {
             document.getElementById('logs-container').innerHTML = '';
