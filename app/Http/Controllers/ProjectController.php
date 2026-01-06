@@ -115,4 +115,56 @@ class ProjectController extends Controller
 
         return response()->json(['message' => 'Log file cleared.']);
     }
+
+    public function recentLogs()
+    {
+        $projects = \App\Models\MonitoredProject::all();
+        $allLogs = [];
+
+        foreach ($projects as $project) {
+            if (!$project->log_path || !file_exists($project->log_path))
+                continue;
+
+            // Get last 20 lines from each project
+            $output = [];
+            exec("tail -n 20 " . escapeshellarg($project->log_path), $output);
+
+            foreach ($output as $line) {
+                if (empty(trim($line)))
+                    continue;
+
+                if (preg_match('/^\[(.*?)\]\s+(\w+)\.(\w+):\s+(.*)/', $line, $matches)) {
+                    $allLogs[] = [
+                        'timestamp' => $matches[1],
+                        'env' => $matches[2],
+                        'level' => $matches[3],
+                        'message' => $matches[4],
+                        'project_id' => $project->id,
+                        'project_name' => $project->name,
+                        'raw' => $line
+                    ];
+                } else {
+                    $allLogs[] = [
+                        'timestamp' => '',
+                        'env' => 'RAW',
+                        'level' => 'LOG',
+                        'message' => $line,
+                        'project_id' => $project->id,
+                        'project_name' => $project->name,
+                        'raw' => $line
+                    ];
+                }
+            }
+        }
+
+        // Sort by timestamp if possible, else keep order
+        usort($allLogs, function ($a, $b) {
+            return strcmp($a['timestamp'], $b['timestamp']);
+        });
+
+        // Limit to last 100 total
+        $allLogs = array_slice($allLogs, -100);
+
+        return response()->json(['logs' => $allLogs]);
+    }
 }

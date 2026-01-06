@@ -58,22 +58,40 @@ class WatchLogs extends Command
     {
         $content = file_get_contents($project->log_path, false, null, $startPos, $endPos - $startPos);
 
+        if ($content === false)
+            return;
+
         $lines = explode("\n", $content);
+        $count = 0;
+
         foreach ($lines as $line) {
             if (empty(trim($line)))
                 continue;
 
             $parsed = $this->parseLogLine($line);
 
-            if ($parsed) {
-                $payload = array_merge($parsed, [
-                    'project_id' => $project->id,
-                    'project_name' => $project->name,
-                ]);
-
-                \App\Events\LogEntryCreated::dispatch($payload);
-                $this->output->write('.');
+            // Fallback for non-standard lines
+            if (!$parsed) {
+                $parsed = [
+                    'timestamp' => date('Y-m-d H:i:s'),
+                    'env' => 'RAW',
+                    'level' => 'LOG',
+                    'message' => $line,
+                    'raw' => $line
+                ];
             }
+
+            $payload = array_merge($parsed, [
+                'project_id' => $project->id,
+                'project_name' => $project->name,
+            ]);
+
+            // Identify level for color output in terminal
+            $level = $parsed['level'];
+            $this->output->writeln("<info>[{$project->name}]</info> Broadcasting: <comment>[$level]</comment> " . substr($parsed['message'], 0, 50));
+
+            \App\Events\LogEntryCreated::dispatch($payload);
+            $count++;
         }
     }
 

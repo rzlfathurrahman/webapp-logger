@@ -129,7 +129,7 @@
         <div class="p-4 border-b border-gray-700 bg-gray-800 flex justify-between items-center shadow-sm">
             <h1 class="text-lg font-semibold flex items-center">
                 <span id="current-filter" class="mr-2">Live Logs</span>
-                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Connected"></span>
+                <span id="connection-status" class="w-2 h-2 rounded-full bg-yellow-500" title="Connecting..."></span>
             </h1>
             <div class="space-x-2 flex items-center">
                 <button id="btn-clear-file" onclick="clearLogFile()" class="hidden px-3 py-1.5 bg-red-900/50 hover:bg-red-800 rounded text-xs text-red-200 border border-red-800/50 transition">Truncate File</button>
@@ -189,7 +189,30 @@
                     });
             } else {
                  btnClearFile.classList.add('hidden');
-                 document.getElementById('logs-container').innerHTML = '<div class="text-gray-500 text-xs text-center mt-4">Select a project to view history, or wait for live logs...</div>';
+
+                 // Fetch recent logs for all projects
+                 document.getElementById('logs-container').innerHTML = '<div class="text-gray-500 text-xs text-center mt-4">Loading recent logs...</div>';
+
+                 axios.get('/projects/recent-logs')
+                     .then(response => {
+                         const logs = response.data.logs;
+                         clearLogs();
+                         if (logs.length === 0) {
+                             document.getElementById('logs-container').innerHTML = '<div class="text-gray-500 text-xs text-center mt-4">No recent logs found. Waiting for live stream...</div>';
+                         } else {
+                             logs.forEach(log => appendLog(log));
+                             // Add separator
+                             const container = document.getElementById('logs-container');
+                             const separator = document.createElement('div');
+                             separator.className = "text-center text-xs text-gray-600 my-2 border-t border-gray-800 pt-2";
+                             separator.innerText = "--- End of History / Start Live Stream ---";
+                             container.appendChild(separator);
+                         }
+                     })
+                     .catch(err => {
+                         console.error(err);
+                         document.getElementById('logs-container').innerHTML = '<div class="text-red-500 text-xs text-center mt-4">Failed to load recent logs.</div>';
+                     });
             }
         }
 
@@ -275,17 +298,56 @@
         }
 
         // Initialize Echo with retry
+        // Initialize Echo with retry
         function initEcho() {
             if (window.Echo) {
                 console.log('Echo loaded, connecting...');
-                window.Echo.channel('logs')
-                    .listen('.LogEntryCreated', (e) => {
-                        console.log('Received log:', e);
-                        appendLog(e.data);
+
+                // Monitor connection status
+                if (window.Echo.connector && window.Echo.connector.pusher) {
+                    window.Echo.connector.pusher.connection.bind('connected', () => {
+                        console.log('CONNECTED to WebSocket');
+                        const statusEl = document.getElementById('connection-status');
+                        statusEl.classList.remove('bg-yellow-500', 'bg-red-500');
+                        statusEl.classList.add('bg-green-500', 'animate-pulse');
+                        statusEl.title = "Connected";
                     });
 
-                // Show connected state (visual)
-                document.getElementById('current-filter').nextElementSibling.classList.remove('text-gray-500');      document.getElementById('current-filter').nextElementSibling.classList.add('animate-pulse');
+                    window.Echo.connector.pusher.connection.bind('unavailable', () => {
+                        console.log('WebSocket unavailable');
+                         const statusEl = document.getElementById('connection-status');
+                        statusEl.classList.remove('bg-green-500', 'bg-yellow-500');
+                        statusEl.classList.add('bg-red-500');
+                        statusEl.title = "Disconnected";
+                    });
+
+                    window.Echo.connector.pusher.connection.bind('failed', () => {
+                        console.log('WebSocket failed');
+                         const statusEl = document.getElementById('connection-status');
+                        statusEl.classList.remove('bg-green-500', 'bg-yellow-500');
+                        statusEl.classList.add('bg-red-500');
+                        statusEl.title = "Connection Failed";
+                    });
+                }
+
+                window.Echo.channel('logs')
+                    .listen('.log.new', (e) => {
+                        console.log('Received log (.log.new):', e);
+                        appendLog(e.data);
+                    })
+                    .listen('log.new', (e) => {
+                         console.log('Received log (log.new):', e);
+                         appendLog(e.data);
+                    })
+                    .listen('.LogEntryCreated', (e) => {
+                         console.log('Received log (.LogEntryCreated):', e);
+                         appendLog(e.data);
+                    })
+                    .listen('LogEntryCreated', (e) => {
+                         console.log('Received log (LogEntryCreated):', e);
+                         appendLog(e.data);
+                    });
+
             } else {
                 console.log('Echo not ready yet, retrying...');
                 setTimeout(initEcho, 100);
