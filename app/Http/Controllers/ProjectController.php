@@ -12,6 +12,12 @@ class ProjectController extends Controller
         return view('dashboard', compact('projects'));
     }
 
+    public function projects()
+    {
+        $projects = \App\Models\MonitoredProject::orderBy('name')->get();
+        return view('projects.index', compact('projects'));
+    }
+
     public function store(\Illuminate\Http\Request $request)
     {
         $request->validate([
@@ -69,10 +75,12 @@ class ProjectController extends Controller
             $candidates = [];
 
             $p1 = strpos($message, '{');
-            if ($p1 !== false) $candidates[] = $p1;
+            if ($p1 !== false)
+                $candidates[] = $p1;
 
             $p2 = strpos($message, '[');
-            if ($p2 !== false) $candidates[] = $p2;
+            if ($p2 !== false)
+                $candidates[] = $p2;
 
             if (!empty($candidates)) {
                 $jsonStart = min($candidates);

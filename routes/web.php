@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProjectController;
 
 Route::get('/', [ProjectController::class, 'index'])->name('home');
+Route::get('/projects', [ProjectController::class, 'projects'])->name('projects.index');
 Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
 Route::delete('/projects/{id}', [ProjectController::class, 'destroy'])->name('projects.destroy');
 Route::get('/projects/{id}/logs', [ProjectController::class, 'logs'])->name('projects.logs');

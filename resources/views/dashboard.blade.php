@@ -25,6 +25,44 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #6b7280;
         }
+
+        @keyframes progress {
+            0% {
+                width: 0%;
+                margin-left: 0;
+            }
+
+            50% {
+                width: 70%;
+                margin-left: 30%;
+            }
+
+            100% {
+                width: 0%;
+                margin-left: 100%;
+            }
+        }
+
+        .animate-progress {
+            animation: progress 1.5s infinite ease-in-out;
+        }
+
+        /* Toast Animation */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast-enter {
+            animation: slideInRight 0.3s ease-out forwards;
+        }
     </style>
 </head>
 
@@ -58,6 +96,11 @@
                     {{ $errors->first() }}
                 </div>
             @endif
+
+            <a href="{{ route('projects.index') }}" onclick="showLoading()"
+                class="block mb-2 p-2 bg-teal-900/30 border border-teal-500/30 text-teal-400 text-sm font-bold rounded hover:bg-teal-900/50 transition text-center">
+                Manage Projects
+            </a>
 
             <div id="project-card-all"
                 class="p-2 bg-gray-600 border border-teal-500 rounded cursor-pointer hover:bg-gray-600 transition project-card"
@@ -174,6 +217,14 @@
         </div>
     </div>
 
+    <!-- Progress Bar -->
+    <div id="loading-bar" class="h-1 w-full bg-gray-800 hidden fixed top-0 left-0 z-50">
+        <div class="h-full bg-teal-500 animate-progress"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[60] flex flex-col space-y-2 pointer-events-none"></div>
+
     <script>
         // Global state
         let activeProjectId = null;
@@ -205,46 +256,48 @@
                 btnClearFile.classList.remove('hidden');
 
                 // Fetch history
-                document.getElementById('logs-container').innerHTML = '<div class="text-gray-500 text-xs text-center mt-4">Loading history...</div>';
+                showLoading();
 
                 axios.get(`/projects/${projectId}/logs`)
                     .then(response => {
                         const logs = response.data.logs;
-                        clearLogs(); // Remove "Loading..."
+                        hideLoading();
                         logs.forEach(log => appendLog(log));
                     })
                     .catch(err => {
                         console.error(err);
+                        hideLoading();
                         document.getElementById('logs-container').innerHTML = '<div class="text-red-500 text-xs text-center mt-4">Failed to load logs.</div>';
                     });
             } else {
-                 btnClearFile.classList.add('hidden');
+                btnClearFile.classList.add('hidden');
 
-                 // Fetch recent logs for all projects
-                 document.getElementById('logs-container').innerHTML = '<div class="text-gray-500 text-xs text-center mt-4">Loading recent logs...</div>';
+                // Fetch recent logs for all projects
+                showLoading();
 
-                 axios.get('/projects/recent-logs')
-                     .then(response => {
-                         const logs = response.data.logs;
-                         clearLogs();
-                         if (logs.length === 0) {
-                             document.getElementById('logs-container').innerHTML = '<div class="text-gray-500 text-xs text-center mt-4">No recent logs found. Waiting for live stream...</div>';
-                         } else {
-                             logs.forEach(log => appendLog(log));
-                             // Add separator
-                             const container = document.getElementById('logs-container');
-                             const separator = document.createElement('div');
-                             separator.className = "text-center text-xs text-gray-600 my-2 border-t border-gray-800 pt-2";
-                             separator.innerText = "--- End of History / Start Live Stream ---";
-                             container.appendChild(separator);
-                         }
-                     })
-                     .catch(err => {
-                         console.error(err);
-                         document.getElementById('logs-container').innerHTML = '<div class="text-red-500 text-xs text-center mt-4">Failed to load recent logs.</div>';
-                     });
+                axios.get('/projects/recent-logs')
+                    .then(response => {
+                        const logs = response.data.logs;
+                        hideLoading();
+                        if (logs.length === 0) {
+                            document.getElementById('logs-container').innerHTML = '<div class="text-gray-500 text-xs text-center mt-4">No recent logs found. Waiting for live stream...</div>';
+                        } else {
+                            logs.forEach(log => appendLog(log));
+                            // Add separator
+                            const container = document.getElementById('logs-container');
+                            const separator = document.createElement('div');
+                            separator.className = "text-center text-xs text-gray-600 my-2 border-t border-gray-800 pt-2";
+                            separator.innerText = "--- End of History / Start Live Stream ---";
+                            container.appendChild(separator);
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        hideLoading();
+                        document.getElementById('logs-container').innerHTML = '<div class="text-red-500 text-xs text-center mt-4">Failed to load recent logs.</div>';
+                    });
+            }
         }
- }
 
         function clearLogs() {
             document.getElementById('logs-container').innerHTML = '';
@@ -366,7 +419,7 @@
 
                     window.Echo.connector.pusher.connection.bind('unavailable', () => {
                         console.log('WebSocket unavailable');
-                         const statusEl = document.getElementById('connection-status');
+                        const statusEl = document.getElementById('connection-status');
                         statusEl.classList.remove('bg-green-500', 'bg-yellow-500');
                         statusEl.classList.add('bg-red-500');
                         statusEl.title = "Disconnected";
@@ -374,7 +427,7 @@
 
                     window.Echo.connector.pusher.connection.bind('failed', () => {
                         console.log('WebSocket failed');
-                         const statusEl = document.getElementById('connection-status');
+                        const statusEl = document.getElementById('connection-status');
                         statusEl.classList.remove('bg-green-500', 'bg-yellow-500');
                         statusEl.classList.add('bg-red-500');
                         statusEl.title = "Connection Failed";
@@ -385,18 +438,22 @@
                     .listen('.log.new', (e) => {
                         console.log('Received log (.log.new):', e);
                         appendLog(e.data);
+                        showToast(e.data);
                     })
                     .listen('log.new', (e) => {
-                         console.log('Received log (log.new):', e);
-                         appendLog(e.data);
+                        console.log('Received log (log.new):', e);
+                        appendLog(e.data);
+                        showToast(e.data);
                     })
                     .listen('.LogEntryCreated', (e) => {
-                         console.log('Received log (.LogEntryCreated):', e);
-                         appendLog(e.data);
+                        console.log('Received log (.LogEntryCreated):', e);
+                        appendLog(e.data);
+                        showToast(e.data);
                     })
                     .listen('LogEntryCreated', (e) => {
-                         console.log('Received log (LogEntryCreated):', e);
-                         appendLog(e.data);
+                        console.log('Received log (LogEntryCreated):', e);
+                        appendLog(e.data);
+                        showToast(e.data);
                     });
 
             } else {
@@ -408,6 +465,99 @@
         document.addEventListener('DOMContentLoaded', () => {
             initEcho();
         });
+
+        function showLoading() {
+            document.getElementById('loading-bar').classList.remove('hidden');
+            const container = document.getElementById('logs-container');
+            container.innerHTML = `
+                <div class="animate-pulse space-y-3 p-4 select-none opacity-50">
+                    <div class="flex items-center space-x-2">
+                        <div class="h-2 bg-gray-800 rounded w-24"></div>
+                        <div class="h-2 bg-gray-800 rounded w-16"></div>
+                        <div class="h-2 bg-gray-800 rounded w-full"></div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                         <div class="h-2 bg-gray-800 rounded w-20"></div>
+                         <div class="h-2 bg-gray-800 rounded w-12"></div>
+                         <div class="h-2 bg-gray-800 rounded w-3/4"></div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                         <div class="h-2 bg-gray-800 rounded w-28"></div>
+                         <div class="h-2 bg-gray-800 rounded w-20"></div>
+                         <div class="h-2 bg-gray-800 rounded w-5/6"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-bar').classList.add('hidden');
+            document.getElementById('logs-container').innerHTML = '';
+        }
+
+        function showToast(data) {
+            const container = document.getElementById('toast-container');
+
+            // Limit max toasts
+            if (container.children.length > 5) {
+                container.removeChild(container.firstChild);
+            }
+
+            const el = document.createElement('div');
+            el.className = 'toast-enter pointer-events-auto bg-gray-800 border border-gray-700 p-3 rounded shadow-lg w-72 flex items-start space-x-3 cursor-pointer hover:bg-gray-750 transition transform hover:scale-105';
+
+            let iconColor = 'text-green-400';
+            let iconLine = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+            let borderColor = '';
+
+            if (['ERROR', 'CRITICAL', 'EMERGENCY'].includes(data.level)) {
+                iconColor = 'text-red-400';
+                iconLine = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+                borderColor = 'border-red-500/50';
+            } else if (['WARNING', 'ALERT'].includes(data.level)) {
+                iconColor = 'text-yellow-400';
+                iconLine = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>';
+                borderColor = 'border-yellow-500/50';
+            }
+
+            if (borderColor) el.classList.add(borderColor);
+
+            el.innerHTML = `
+                <div class="${iconColor} flex-shrink-0 mt-0.5">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        ${iconLine}
+                    </svg>
+                </div>
+                <div class="flex-1 overflow-hidden">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold text-teal-400 truncate w-2/3">[${data.project_name}]</span>
+                        <span class="text-[10px] text-gray-500">${new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <p class="text-xs text-gray-300 line-clamp-2 break-words">${data.message}</p>
+                </div>
+                <button onclick="this.parentElement.remove(); event.stopPropagation();" class="text-gray-500 hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            `;
+
+            // On click, maybe scroll to log? For now just dismiss or focus.
+            el.onclick = () => {
+                // Future: scroll to specific log
+                el.remove();
+            };
+
+            container.appendChild(el);
+
+            // Auto dismiss
+            setTimeout(() => {
+                if (el.parentElement) {
+                    el.style.opacity = '0';
+                    el.style.transform = 'translateX(100%)';
+                    el.style.transition = 'all 0.3s ease-out';
+                    setTimeout(() => el.remove(), 300);
+                }
+            }, 5000);
+        }
     </script>
 </body>
 
