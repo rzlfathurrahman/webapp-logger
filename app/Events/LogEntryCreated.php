@@ -42,4 +42,39 @@ class LogEntryCreated implements ShouldBroadcastNow
     {
         return 'log.new';
     }
+
+    /**
+     * Get the data to broadcast.
+     * Limits payload size to avoid Pusher's 10KB limit.
+     *
+     * @return array
+     */
+    public function broadcastWith(): array
+    {
+        $maxMessageLength = 500;
+        $maxRawLength = 500;
+        $maxContextLength = 2000;
+
+        $data = $this->data;
+
+        // Truncate message
+        if (isset($data['message']) && strlen($data['message']) > $maxMessageLength) {
+            $data['message'] = substr($data['message'], 0, $maxMessageLength) . '... [truncated]';
+        }
+
+        // Truncate raw
+        if (isset($data['raw']) && strlen($data['raw']) > $maxRawLength) {
+            $data['raw'] = substr($data['raw'], 0, $maxRawLength) . '... [truncated]';
+        }
+
+        // Handle context - convert to string and truncate if too large
+        if (isset($data['context'])) {
+            $contextJson = json_encode($data['context']);
+            if (strlen($contextJson) > $maxContextLength) {
+                $data['context'] = ['_truncated' => true, '_message' => 'Context too large to broadcast. Check server logs for full details.'];
+            }
+        }
+
+        return ['data' => $data];
+    }
 }
